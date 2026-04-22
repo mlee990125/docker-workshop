@@ -3,7 +3,7 @@
 
 import click
 import pandas as pd
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect
 from tqdm.auto import tqdm
 
 dtype = {
@@ -58,20 +58,17 @@ def run(pg_user, pg_pass, pg_host, pg_port, pg_db, year, month, target_table, ch
 
     first = True
 
-    for df_chunk in tqdm(df_iter):
-        if first:
-            df_chunk.head(0).to_sql(
-                name=target_table,
-                con=engine,
-                if_exists='replace'
-            )
-            first = False
+    inspector = inspect(engine)
 
-        df_chunk.to_sql(
-            name=target_table,
-            con=engine,
-            if_exists='append'
-        )
+    if inspector.has_table(target_table):
+        print(f"Table '{target_table}' already exists. Skipping ingestion to protect data.")
+    else:
+        print(f"Table '{target_table}' not found. Starting ingestion...")
+        for df_chunk in tqdm(df_iter):
+            if first:
+                df_chunk.head(0).to_sql(name=target_table, con=engine, if_exists='replace')
+                first = False
+            df_chunk.to_sql(name=target_table, con=engine, if_exists='append')
 
 if __name__ == '__main__':
     run()
